@@ -1,27 +1,35 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react'; 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot, Timestamp, serverTimestamp, setLogLevel, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { Play, Square, ListChecks, CalendarDays, Edit3, Trash2, Clock, BookOpen, ChevronLeft, ChevronRight, Save, Columns, Rows, X, Menu, Moon, Sun, BarChartHorizontalBig, PieChart, ChevronsLeft, ChevronsRight, LogOut, UserPlus, Info, Download, UserCheck, Wand2 } from 'lucide-react';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'; 
+import { getFirestore, doc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot, Timestamp, serverTimestamp, setLogLevel, getDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore'; 
+import { PlusCircle, Play, Square, ListChecks, CalendarDays, Edit3, Trash2, CheckCircle, ArrowRight, Clock, BookOpen, Eye, ChevronLeft, ChevronRight, Save, Columns, Rows, MessageSquareText, X, Menu, Moon, Sun, Circle, BarChartHorizontalBig, PieChart, ChevronsLeft, ChevronsRight, Table, ChevronDown, ChevronUp, FileText, Hourglass, Share2, Merge, LogOut, UserPlus, Info, Download, BookCopy, UserCheck, Zap, ClipboardList, GripVertical, MoreHorizontal, Wand2 } from 'lucide-react'; 
 // import ReactConfetti from 'react-confetti'; // Temporarily commented out due to build environment
 
-
-// Firebase Configuration
+// --- Firebase Configuration ---
+// 使用环境变量方式，安全且适合 Netlify/本地开发
 const firebaseConfig = {
-  apiKey: "AIzaSyB5FUBj6P5a1pNY4Y1vu0HxnPTrsJG1srE",
-  authDomain: "my-time-logger-app.firebaseapp.com",
-  projectId: "my-time-logger-app",
-  storageBucket: "my-time-logger-app.firebasestorage.app",
-  messagingSenderId: "1076801387988",
-  appId: "1:1076801387988:web:879fdd43cf34666afe2a41",
-  measurementId: "G-BCPEPC53G0"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-setLogLevel('debug'); 
+
+const appId = process.env.REACT_APP_APP_ID || 'default-minimalist-time-tracker';
+
+
+// --- Initialize Firebase ---
+// Check if all Firebase config keys are present before initializing
+const isFirebaseConfigValid = firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE";
+
+const app = isFirebaseConfigValid ? initializeApp(firebaseConfig) : null;
+const db = app ? getFirestore(app) : null;
+const auth = app ? getAuth(app) : null;
+if (app) {
+    setLogLevel('debug');
+}
 
 // --- App Context for Auth State ---
 const AppContext = React.createContext();
@@ -53,10 +61,7 @@ const formatDateForDisplay_YYYYMMDD_periods = (dateInput, options = { year: 'num
     if (date instanceof Timestamp) {
         date = date.toDate();
     }
-    if (!(date instanceof Date) || isNaN(date.valueOf())) {
-        console.warn("formatDateForDisplay_YYYYMMDD_periods received an invalid date:", dateInput);
-        return ''; 
-    }
+    if (!(date instanceof Date) || isNaN(date.valueOf())) { return ''; }
     return date.toLocaleDateString('zh-CN', options).replace(/\//g, '.');
 };
 
@@ -66,10 +71,7 @@ const formatDateForStorage_YYYYMMDD_hyphens = (dateInput) => {
     if (date instanceof Timestamp) {
         date = date.toDate();
     }
-    if (!(date instanceof Date) || isNaN(date.valueOf())) {
-        console.warn("formatDateForStorage_YYYYMMDD_hyphens received an invalid date:", dateInput);
-        return ''; 
-    }
+    if (!(date instanceof Date) || isNaN(date.valueOf())) { return ''; }
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0'); 
     const day = String(date.getUTCDate()).padStart(2, '0');
@@ -82,10 +84,7 @@ const formatTime = (dateInput) => {
     if (date instanceof Timestamp) {
         date = date.toDate();
     }
-    if (!(date instanceof Date) || isNaN(date.valueOf())) {
-        console.warn("formatTime received an invalid date:", dateInput);
-        return 'N/A';
-    }
+    if (!(date instanceof Date) || isNaN(date.valueOf())) { return 'N/A'; }
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 };
 
@@ -121,38 +120,23 @@ const formatDuration = (durationMs, short = false) => {
 
 // --- Components (Defined before App component) ---
 
-// Modal Component
 function Modal({ isOpen, onClose, title, children, size = 'max-w-lg' }) { 
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity duration-300 ease-in-out" onClick={onClose}> 
-            <div 
-                className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-2xl w-full ${size} flex flex-col transform transition-all duration-300 ease-in-out max-h-[90vh]`} 
-                onClick={(e) => e.stopPropagation()} 
-            >
+            <div className={`bg-white dark:bg-slate-800 p-6 rounded-xl shadow-2xl w-full ${size} flex flex-col transform transition-all duration-300 ease-in-out max-h-[90vh]`} onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
-                    <button 
-                        onClick={onClose} 
-                        className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                        aria-label="关闭模态框"
-                    >
-                        <X size={20}/>
-                    </button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" aria-label="关闭模态框"><X size={20}/></button>
                 </div>
-                <div className="overflow-y-auto flex-grow pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent"> 
-                    {children}
-                </div>
+                <div className="overflow-y-auto flex-grow pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">{children}</div>
             </div>
         </div>
     );
-};
+}
 
-// Current Activity Tracker
 function CurrentActivityTracker() { 
-
-    const { userId, isAuthReady, db: contextDb, firebaseConfig } = useContext(AppContext);
-const contextAppId = firebaseConfig.appId;
+    const { userId, isAuthReady, db: contextDb, appId: contextAppId } = useContext(AppContext); 
     const [currentEvent, setCurrentEvent] = useState(null); 
     const [eventName, setEventName] = useState(''); 
     const [prospectiveEventName, setProspectiveEventName] = useState(''); 
@@ -161,7 +145,7 @@ const contextAppId = firebaseConfig.appId;
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        if (!userId || !isAuthReady) return; 
+        if (!userId || !isAuthReady || !contextDb) return; 
         const loadActiveEvent = async () => {
             const activeEventRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/activeEvent/current`);
             try {
@@ -171,55 +155,41 @@ const contextAppId = firebaseConfig.appId;
                     if (data && data.startTime && typeof data.startTime.toDate === 'function') {
                         setCurrentEvent({ ...data, name: data.name || "新活动", startTime: data.startTime.toDate(), id: docSnap.id });
                         setEventName(data.name || "新活动"); 
-                        setIsLogging(true);
-                        setProspectiveEventName(''); 
-                    } else {
-                        setCurrentEvent(null); setEventName(''); setIsLogging(false);
-                    }
-                } else {
-                    setIsLogging(false); 
-                }
-            } catch (error) {
-                setIsLogging(false);
-            }
+                        setIsLogging(true); setProspectiveEventName(''); 
+                    } else { setCurrentEvent(null); setEventName(''); setIsLogging(false); }
+                } else { setIsLogging(false); }
+            } catch (error) { setIsLogging(false); }
         };
         loadActiveEvent();
     }, [userId, isAuthReady, contextDb, contextAppId]);
 
-
     const handleStartEvent = async () => {
-console.log("按钮被点击了");
-
-        if (!userId) { return; }
+        if (!userId || !db) return; 
         setIsLoading(true);
         const nameToUse = prospectiveEventName.trim() || "新活动";
         const newEvent = { name: nameToUse, startTime: serverTimestamp() };
         try {
-            const activeEventRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/activeEvent/current`);
+            const activeEventRef = doc(db, `artifacts/${appId}/users/${userId}/activeEvent/current`);
             await setDoc(activeEventRef, newEvent);
             setCurrentEvent({ name: nameToUse, startTime: new Date(), id: 'current' }); 
-            setEventName(nameToUse); 
-            setIsLogging(true);
-            setProspectiveEventName(''); 
+            setEventName(nameToUse); setIsLogging(true); setProspectiveEventName(''); 
         } catch (error) { console.error("开始事件失败:", error); }
         setIsLoading(false);
     };
 
     const handleStopEvent = async () => {
-        if (!userId || !currentEvent || !currentEvent.startTime) { return; }
+        if (!userId || !currentEvent || !currentEvent.startTime || !db) return;
         setIsLoading(true);
         const endTime = new Date();
         let startTime = currentEvent.startTime; 
         if (!(startTime instanceof Date) || isNaN(startTime.valueOf())) {
             if (currentEvent.startTime && typeof currentEvent.startTime.toDate === 'function') {
                 startTime = currentEvent.startTime.toDate();
-            } else {
-                setIsLoading(false); return;
-            }
+            } else { setIsLoading(false); return; }
         }
         const durationMs = endTime.getTime() - startTime.getTime();
         try {
-            await addDoc(collection(contextDb, `artifacts/${contextAppId}/users/${userId}/events`), {
+            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/events`), {
                 name: currentEvent.name || "未命名活动", 
                 startTime: Timestamp.fromDate(startTime), 
                 endTime: Timestamp.fromDate(endTime),
@@ -227,7 +197,7 @@ console.log("按钮被点击了");
                 date: formatDateForStorage_YYYYMMDD_hyphens(startTime), 
                 createdAt: serverTimestamp(),
             });
-            const activeEventRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/activeEvent/current`);
+            const activeEventRef = doc(db, `artifacts/${appId}/users/${userId}/activeEvent/current`);
             await deleteDoc(activeEventRef);
             setCurrentEvent(null); setEventName(''); setIsLogging(false);
         } catch (error) { console.error("结束事件并保存失败:", error); }
@@ -235,10 +205,10 @@ console.log("按钮被点击了");
     };
     
     const handleSaveActiveEventName = async () => {
-        if (!userId || !currentEvent || !eventName.trim()) { return; }
+        if (!userId || !currentEvent || !eventName.trim() || !db) return;
         setIsLoading(true);
         try {
-            const activeEventRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/activeEvent/current`);
+            const activeEventRef = doc(db, `artifacts/${appId}/users/${userId}/activeEvent/current`);
             await updateDoc(activeEventRef, { name: eventName });
             setCurrentEvent(prev => ({ ...prev, name: eventName }));
             setShowEditActiveEventModal(false);
@@ -278,9 +248,7 @@ console.log("按钮被点击了");
 
 // Daily Log View
 function DailyLogView() { 
-    const { userId, isAuthReady, db: contextDb, firebaseConfig } = useContext(AppContext);
-const contextAppId = firebaseConfig.appId;
-
+    const { userId, isAuthReady, db: contextDb, appId: contextAppId } = useContext(AppContext);
     const [selectedDate, setSelectedDate] = useState(formatDateForStorage_YYYYMMDD_hyphens(new Date()));
     const [events, setEvents] = useState([]);
     const [eventSummary, setEventSummary] = useState({});
@@ -295,14 +263,11 @@ const contextAppId = firebaseConfig.appId;
     const [analysisData, setAnalysisData] = useState([]);
     const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
     const [currentAnalysisDate, setCurrentAnalysisDate] = useState(new Date());
-
     const [aiAnalysis, setAiAnalysis] = useState('');
     const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
 
-
-    // Fetch daily events
     const fetchDailyEvents = useCallback((dateStr_YYYYMMDD) => { 
-        if (!userId || !isAuthReady) { setEvents([]); setEventSummary({}); return () => {}; }
+        if (!userId || !isAuthReady || !contextDb) { setEvents([]); setEventSummary({}); return () => {}; }
         setIsLoading(true);
         try {
             const q = query(collection(contextDb, `artifacts/${contextAppId}/users/${userId}/events`), where("date", "==", dateStr_YYYYMMDD));
@@ -333,7 +298,7 @@ const contextAppId = firebaseConfig.appId;
             }, (error) => { console.error("获取事件失败 (onSnapshot):", error); setIsLoading(false); });
             return unsubscribe; 
         } catch (error) { console.error("获取事件查询构建失败:", error); setIsLoading(false); return () => {}; }
-    }, [userId, isAuthReady, contextAppId, contextDb]); 
+    }, [userId, isAuthReady, contextDb, contextAppId]); 
 
     useEffect(() => {
         let unsubscribe = () => {}; 
@@ -343,11 +308,10 @@ const contextAppId = firebaseConfig.appId;
         return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
     }, [selectedDate, dailyViewMode, fetchDailyEvents, isAuthReady, userId]); 
 
-    // Fetch and process analysis data
     const fetchAnalysisData = useCallback(async (period, date) => {
-        if (!userId || !isAuthReady) return;
+        if (!userId || !isAuthReady || !contextDb) return;
         setIsAnalysisLoading(true);
-        setAiAnalysis(''); // Clear previous AI analysis
+        setAiAnalysis('');
         let startDate, endDate;
         const targetDate = new Date(date); 
         targetDate.setHours(0,0,0,0);
@@ -390,7 +354,7 @@ const contextAppId = firebaseConfig.appId;
             setAnalysisData(sortedAnalysisData);
         } catch (error) { console.error(`获取 ${period} 分析数据失败:`, error); setAnalysisData([]); }
         setIsAnalysisLoading(false);
-    }, [userId, isAuthReady, contextAppId, contextDb]);
+    }, [userId, isAuthReady, contextDb, contextAppId]);
 
     useEffect(() => {
         if (dailyViewMode === 'analysis') {
@@ -433,7 +397,6 @@ const contextAppId = firebaseConfig.appId;
         }
     };
 
-
     const handleDateChange = (e) => {
         const newDate = e.target.value;
         setSelectedDate(newDate);
@@ -455,17 +418,17 @@ const contextAppId = firebaseConfig.appId;
 
     const confirmDeleteEvent = (eventId) => { setEventToDelete(eventId); setShowDeleteConfirmModal(true); };
     const handleDeleteConfirmed = async () => {
-        if (!userId || !eventToDelete) return;
-        try { await deleteDoc(doc(contextDb, `artifacts/${contextAppId}/users/${userId}/events`, eventToDelete)); } 
+        if (!userId || !eventToDelete || !db) return;
+        try { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/events`, eventToDelete)); } 
         catch (error) { console.error("删除事件失败:", error); }
         setShowDeleteConfirmModal(false); setEventToDelete(null);
     };
     const openEditLoggedEventModal = (event) => { setLoggedEventToEdit(event); setEditedLoggedEventName(event.name || ''); setShowEditLoggedEventModal(true); };
     const handleSaveEditedLoggedEventName = async () => {
-        if (!userId || !loggedEventToEdit || !editedLoggedEventName.trim()) { console.warn("编辑的事件名称不能为空或未选择事件。"); return; }
+        if (!userId || !loggedEventToEdit || !editedLoggedEventName.trim() || !db) { console.warn("编辑的事件名称不能为空或未选择事件。"); return; }
         setIsLoading(true); 
         try {
-            const eventRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/events`, loggedEventToEdit.id);
+            const eventRef = doc(db, `artifacts/${appId}/users/${userId}/events`, loggedEventToEdit.id);
             await updateDoc(eventRef, { name: editedLoggedEventName });
             setShowEditLoggedEventModal(false); setLoggedEventToEdit(null);
         } catch (error) { console.error("更新已记录的事件名称失败:", error); }
@@ -643,7 +606,7 @@ function WeeklyPlanner() {
     }, []);
     useEffect(() => { updateWeekInfo(currentWeekDate); }, [currentWeekDate, updateWeekInfo]);
     useEffect(() => {
-        if (!userId || !weekDocId || !isAuthReady) { setPlan(''); setReview(''); setAiSummary(''); return () => {}; }
+        if (!userId || !weekDocId || !isAuthReady || !contextDb) { setPlan(''); setReview(''); setAiSummary(''); return () => {}; }
         setIsLoading(true);
         const docRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/weeklyEntries`, weekDocId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -652,13 +615,13 @@ function WeeklyPlanner() {
             setIsLoading(false);
         }, (error) => { console.error("获取周计划失败 (onSnapshot):", error); setIsLoading(false); });
         return unsubscribe;
-    }, [userId, weekDocId, isAuthReady, contextAppId, contextDb]); 
+    }, [userId, weekDocId, isAuthReady, contextDb, contextAppId]); 
 
     const handleSave = async (summaryToSave = aiSummary) => {
-        if (!userId || !weekDocId) return; 
+        if (!userId || !weekDocId || !db) return; 
         setIsLoading(true);
         try {
-            const docRef = doc(contextDb, `artifacts/${contextAppId}/users/${userId}/weeklyEntries`, weekDocId);
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/weeklyEntries`, weekDocId);
             await setDoc(docRef, { plan, review, aiSummary: summaryToSave, weekId: weekDocId, updatedAt: serverTimestamp() }, { merge: true });
         } catch (error) { console.error("保存周记录失败:", error); }
         setIsLoading(false);
@@ -786,6 +749,7 @@ function App() {
     const [authLoading, setAuthLoading] = useState(false);
 
     useEffect(() => {
+        if(!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUserId(user.uid);
@@ -797,12 +761,7 @@ function App() {
                 setUserId(null); setUserEmail(''); setIsAnonymous(true);
                 console.log("用户未登录，尝试匿名登录...");
                 try {
-                    const localInitialAuthToken = null;
-                    if (localInitialAuthToken) {
-                         await signInWithCustomToken(auth, localInitialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    await signInAnonymously(auth);
                 } catch (error) {
                     console.error("匿名登录失败:", error);
                     setAuthError("匿名登录失败，请稍后重试。");
@@ -846,6 +805,25 @@ function App() {
     };
 
 
+    if (!isFirebaseConfigValid) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
+                <div className="max-w-2xl text-center bg-white p-8 rounded-lg shadow-2xl border-2 border-red-300">
+                    <h1 className="text-3xl font-bold text-red-600 mb-4">配置错误</h1>
+                    <p className="text-slate-700 text-lg mb-2">未能加载Firebase配置信息。</p>
+                    <p className="text-slate-600">请检查您是否已将 `firebaseConfig` 对象中的占位符替换为您的真实Firebase项目密钥。</p>
+                    <code className="block bg-slate-100 text-left p-4 rounded-md mt-6 text-sm text-slate-800">
+                        const firebaseConfig = &#123; <br/>
+                        &nbsp;&nbsp;apiKey: "YOUR_API_KEY_HERE", <br/>
+                        &nbsp;&nbsp;authDomain: "YOUR_PROJECT_ID.firebaseapp.com", <br/>
+                        &nbsp;&nbsp;... <br/>
+                        &#125;;
+                    </code>
+                </div>
+            </div>
+        );
+    }
+    
     if (!isAuthReady) {
         return (<div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900"><p className="text-lg text-slate-700 dark:text-slate-200">正在初始化应用...</p></div>);
     }
@@ -863,18 +841,13 @@ function App() {
             {!isNavCollapsed && <span className="truncate">{label}</span>}
         </button>
     );
-const appId = firebaseConfig.appId;
 
     return (
-        <AppContext.Provider value={{ isAuthReady, userId, db, firebaseConfig }}>
+        <AppContext.Provider value={{ isAuthReady, userId, db, appId }}>
             <div className={`min-h-screen ${theme === 'dark' ? 'dark bg-slate-900' : 'bg-slate-100'} font-sans transition-colors duration-300`}>
                 <header className="bg-white dark:bg-slate-800 shadow-lg sticky top-0 z-40 border-b dark:border-slate-700">
                     <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                        <div className="flex items-center"><BookOpen size={32} className="text-sky-500 dark:text-sky-400 mr-2"/>
-
-<h1 className="text-4xl text-blue-600 font-bold text-center mb-8">极简时间日志</h1>
-
-</div>
+                        <div className="flex items-center"><BookOpen size={32} className="text-sky-500 dark:text-sky-400 mr-2"/><h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">极简时间日志</h1></div>
                         <div className="flex items-center space-x-3">{userId && (isAnonymous ? <span className="text-xs text-yellow-600 dark:text-yellow-400 hidden sm:flex items-center"><Info size={14} className="mr-1"/>匿名访问</span> : <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:flex items-center"><UserCheck size={16} className="mr-1.5 opacity-70"/> {userEmail}</span>) }
                             {userId && !isAnonymous && <button onClick={handleSignOut} title="登出" className="p-2 rounded-full text-slate-600 hover:bg-red-100 dark:text-slate-300 dark:hover:bg-red-700/50 hover:text-red-600 dark:hover:text-red-300 transition-colors"><LogOut size={20}/></button>}
                              {isAnonymous && <button onClick={() => {setAuthMode('login'); setShowAuthModal(true);}} title="登录/注册" className="p-2 rounded-full text-slate-600 hover:bg-green-100 dark:text-slate-300 dark:hover:bg-green-700/50 hover:text-green-600 dark:hover:text-green-300 transition-colors"><UserPlus size={20}/></button>}
