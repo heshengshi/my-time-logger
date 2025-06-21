@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useContext, useRef } from 'react'; 
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'; 
-import { getFirestore, doc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot, Timestamp, serverTimestamp, setLogLevel, getDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore'; 
-import { PlusCircle, Play, Square, ListChecks, CalendarDays, Edit3, Trash2, CheckCircle, ArrowRight, Clock, BookOpen, Eye, ChevronLeft, ChevronRight, Save, Columns, Rows, MessageSquareText, X, Menu, Moon, Sun, Circle, BarChartHorizontalBig, PieChart, ChevronsLeft, ChevronsRight, Table, ChevronDown, ChevronUp, FileText, Hourglass, Share2, Merge, LogOut, UserPlus, Info, Download, BookCopy, UserCheck, Zap, ClipboardList, GripVertical, MoreHorizontal, Wand2 } from 'lucide-react'; 
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot, Timestamp, serverTimestamp, setLogLevel, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { Play, Square, ListChecks, CalendarDays, Edit3, Trash2, Clock, BookOpen, ChevronLeft, ChevronRight, Save, Columns, Rows, X, Menu, Moon, Sun, BarChartHorizontalBig, PieChart, ChevronsLeft, ChevronsRight, LogOut, UserPlus, Info, Download, UserCheck, Wand2 } from 'lucide-react';
 // import ReactConfetti from 'react-confetti'; // Temporarily commented out due to build environment
+
 
 // Firebase Configuration
 const firebaseConfig = {
