@@ -8,12 +8,13 @@ import { PlusCircle, Play, Square, ListChecks, CalendarDays, Edit3, Trash2, Chec
 // --- Firebase Configuration ---
 // 使用环境变量方式，安全且适合 Netlify/本地开发
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyB5FUBj6P5a1pNY4Y1vu0HxnPTrsJG1srE",
+  authDomain: "my-time-logger-app.firebaseapp.com",
+  projectId: "my-time-logger-app",
+  storageBucket: "my-time-logger-app.firebasestorage.app",
+  messagingSenderId: "1076801387988",
+  appId: "1:1076801387988:web:879fdd43cf34666afe2a41",
+  measurementId: "G-BCPEPC53G0"
 };
 
 
